@@ -1,0 +1,56 @@
+name: Publish DenChannel v0.9.0
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v0.9.0.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore verified APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > DenChannel-0.9.0-debug.apk
+          for blob_sha in c81c84246beec6462c3f650b5aa3914be104bfbe d38db096546bea9a0c9ddbbe26545c2773842300 31bd77bfb3a7fb2d54b06eb263e291d0f163848f cad5141656b49f1f20b3b679b851e7b73aa4f3e2 bcf47c6b39c660acb21ebda4a11552c8ed1a01d9 57b25cfd717157d39a07fde387947286f4828840 8031bd81d0391875a61d90f782ea8be466238902 db11e35547de69df36bfa27e488b80086b78ac92 ab6d8f8e104f03157a08dab8535bbfc7aa5b09a4 96e8fd64c2c09bc5e660ed0cd33435f4c9637b68 69873134532eaca197b3448d418a009c26937752 cecec876dfe1247f346a9bbf51dd1ca6e686235d e4b0e85c08f9a7f2a141976b0cdd4a09bb8c6bee 258bd25bb7182b4a24e911d5ccceecba01248d7b a79122e911ac59b8099668a057e1895a5378016f 35a7cbee621df75cf833ace41115090a8dfdcc8b 8425cacc357249f02f425784c3ed39b8698cc5d1 f20820f4fdc1c0bd0f5848a1f937433821eac6ee d33a2d4b9da99352d4ffc4bbb21e7c455291d713 cc2831ba1bc37c2c6b2f668512f19a7d1bf222bc 42bf46521b5ab9bfb65a4c6a075a844bce100aa2 2c5eef17b01e4d4575369455a433d1b1492f70bb aef84f1e451c9e3f18973fa29964aa3736446394 be126356e1a0772d769e31434f7645e5f6cc7cc8; do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob_sha}" --jq .content \
+              | tr -d '\n' \
+              | base64 --decode \
+              >> DenChannel-0.9.0-debug.apk
+          done
+          printf '%s  %s\n' \
+            '0b0b30026d7a6639d55680797786d0ccfdc6c76e22655855099b5c93ea99674c' \
+            'DenChannel-0.9.0-debug.apk' \
+            | sha256sum --check -
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.9.0 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release v0.9.0 already exists."
+            exit 0
+          fi
+          cat > release-notes.md <<'EOF'
+          ## DenChannel v0.9.0
+
+          DenChannelのAndroid用APKです。
+
+          - ファイル: `DenChannel-0.9.0-debug.apk`
+          - SHA-256: `0b0b30026d7a6639d55680797786d0ccfdc6c76e22655855099b5c93ea99674c`
+
+          Android端末でAPKをダウンロードしてインストールしてください。
+          EOF
+          gh release create v0.9.0 \
+            DenChannel-0.9.0-debug.apk \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DenChannel v0.9.0" \
+            --notes-file release-notes.md
