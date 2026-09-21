@@ -1,0 +1,57 @@
+name: Publish DenChannel v0.9.9
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v0.9.9.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'denngaku-chan/DenChannel-Releases'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore and verify distribution APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > DenChannel-0.9.9-debug.apk
+          for blob_sha in \
+            93e317b8174e4527a2b3fcc9f2314c4aea4de506 bde9ac111107368e1af40c27b6bd89747e22f955 1b005aed17c21e0b90a7bd47c582fdcdf4b91b06 870d64a9d1fe8afb3c4e6d65bc0e5072e326a0d5 dbc296d40e4abd2b5a1a8b507583fb8f5e41f147 \
+            b6cce60bc9a58467267fe6873f62555382b98980 85967f40e44560296b9eef317c70afc95ee00fd0 64260f2512844ad9ba11a24e690a45cb00b51159 82408ffc8b05546de64cda819888f4bc2feca1b4 06e05d84a66c3550e771abc5fa3bc608e6d8fd93 \
+            e7356ab714c70d59c5c14d9f2c8ebfa264279473 65c248685984742fe7ced20bec0ca57b76e3551b d8710dd47188858d31953c07911f31bc8b29cdb3 aafa10e9263e8c9b2e119bfe5e71fb39b991beef 0df0dc648720586d422e81d8db154b6c21f6b7ce \
+            25402e543ba056b3e47e69ea83d29a85b56e7426 939fe835db91066ca3db0cccdcaa815e7ecba218 aefaaaffc593c9548761b0765be7f54ffba7ae62 ed1e7047a135cf8700639e0e3cd71477355c4fd3
+          do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob_sha}" --jq .content | tr -d '\n' | base64 --decode >> DenChannel-0.9.9-debug.apk
+          done
+          echo '49864449d498366cd3a3ac1c7f2185e33d0332991483533a1d838c7898afa193  DenChannel-0.9.9-debug.apk' | sha256sum --check -
+
+      - name: Publish public GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.9.9 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo 'Release already exists.'
+            exit 0
+          fi
+          cat > release-notes.md <<'EOF'
+          ## DenChannel v0.9.9
+
+          - NG IDだけを確認付きで一括削除
+          - 連鎖NGの切り替えを即時保存
+          - NGレスへの返信者と同じIDのレス、その先の返信も連鎖NG
+          - `>2`・`＞＞2`・`≫2`・全角数字などの返信表記に対応
+
+          Pixel 9aでの個人利用向けAPKです。v0.9.7以前から上書き更新できます。
+          SHA-256: `49864449d498366cd3a3ac1c7f2185e33d0332991483533a1d838c7898afa193`
+          EOF
+          gh release create v0.9.9 \
+            DenChannel-0.9.9-debug.apk \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DenChannel v0.9.9" \
+            --notes-file release-notes.md
