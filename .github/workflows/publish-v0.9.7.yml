@@ -1,0 +1,55 @@
+name: Publish DenChannel v0.9.7
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v0.9.7.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'denngaku-chan/DenChannel-Releases'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore and verify distribution APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > DenChannel-0.9.7-debug.apk
+          for blob_sha in \
+            ef7ee8c66174bec11e740252db0681c343bd03a2 bde9ac111107368e1af40c27b6bd89747e22f955 1b005aed17c21e0b90a7bd47c582fdcdf4b91b06 870d64a9d1fe8afb3c4e6d65bc0e5072e326a0d5 dbc296d40e4abd2b5a1a8b507583fb8f5e41f147 \
+            b6cce60bc9a58467267fe6873f62555382b98980 85967f40e44560296b9eef317c70afc95ee00fd0 64260f2512844ad9ba11a24e690a45cb00b51159 82408ffc8b05546de64cda819888f4bc2feca1b4 06e05d84a66c3550e771abc5fa3bc608e6d8fd93 \
+            e7356ab714c70d59c5c14d9f2c8ebfa264279473 65c248685984742fe7ced20bec0ca57b76e3551b d8710dd47188858d31953c07911f31bc8b29cdb3 aafa10e9263e8c9b2e119bfe5e71fb39b991beef 0df0dc648720586d422e81d8db154b6c21f6b7ce \
+            25402e543ba056b3e47e69ea83d29a85b56e7426 939fe835db91066ca3db0cccdcaa815e7ecba218 ed0109d8d3df8ac6cf301a70055608bc76227fac 867d13bef0395ae150f87317e2b2489261e0ec05; do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob_sha}" --jq .content | tr -d '\n' | base64 --decode >> DenChannel-0.9.7-debug.apk
+          done
+          echo 'a99be7ca39c95558d6333639fd305a339a6301f3caa8e3ef7e69f86257a95b67  DenChannel-0.9.7-debug.apk' | sha256sum --check -
+
+      - name: Publish public GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.9.7 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo 'Release already exists.'
+            exit 0
+          fi
+          cat > release-notes.md <<'EOF'
+          ## DenChannel v0.9.7
+
+          - 連鎖NGの切り替えとNG名前の部分一致
+          - レス長押しから本文のNGワード登録と手入力に対応
+          - スレッド本文のタップ範囲を上40％・中央15％・下45％に調整
+
+          Pixel 9aでの個人利用向けAPKです。既存版へ上書き更新できます。
+          SHA-256: `a99be7ca39c95558d6333639fd305a339a6301f3caa8e3ef7e69f86257a95b67`
+          EOF
+          gh release create v0.9.7 \
+            DenChannel-0.9.7-debug.apk \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DenChannel v0.9.7" \
+            --notes-file release-notes.md
