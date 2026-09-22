@@ -1,0 +1,67 @@
+name: Publish DenChannel v0.9.11
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v0.9.11.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'denngaku-chan/DenChannel-Releases'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restore and verify distribution APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          : > DenChannel-0.9.11-debug.apk
+          for blob_sha in 4fbb9129208f9adfb51f55a635b51d6374d954be 15c0b6aa39af4ea3027f9d7d149d56f566710d7b a9e599fa6a0df4174f4f8b4da17f7a74b9689cb0 fa529f2e13ae719c3dea29cb874fabe92a6e5637 06c026d06e54da71a355677e4642d618b8ef8a64 191777584c082f59a0cf68dcc6fd94cd30a4d3cf 247743a202e1698d3a091df35801bcd7f6f0e195 4bc97d19f2829c245c938b02e2e7bc05118381ac 16a72cf6e381fbc972ebdd233f55c13125d2d283 877553282244cef5a6249a02de054d50384111e5 82f4ebabc4292cd9757555f76abdbb651b6d192a 7191a538cbbfa3ec70c6320281f4c49b5fab3661 49ff2c40a6b8c2ba752662be6a71977f1a317f78 e3dde505ed154283e16a628b70d4afed71b3b947 f3eafaea4d77a104642429ecf50edc30b11e3778 42277634dc21b918e9e5d67ee3fc20f8ac2e09f9 7bcc3f916bcf2bb8fc05d4e99d10303f8dda7398 142bc12aece4a0e3745ed7215d98c2c256f819c1 c0b31479ecba3db296e7b3e467a7550832536ee6 572ae6b0a3135f5fe8da739389ecb5e75182c783 1ccf181fd4c8c725b174e795fdded316572f5746 f034908907d847076af5eb2fde24606c18c18f7b; do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob_sha}" --jq .content \
+              | tr -d '\n' \
+              | base64 --decode \
+              >> DenChannel-0.9.11-debug.apk
+          done
+          echo '1a3a8f924e5fcecd89a9a6d04bf13ed3462ada7d57cad90d9f6914efd3b37b54  DenChannel-0.9.11-debug.apk' \
+            | sha256sum --check -
+
+      - name: Publish public GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v0.9.11 --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo 'Release already exists.'
+            exit 0
+          fi
+          cat > release-notes.md <<'EOF'
+          ## DenChannel v0.9.11
+
+          - 5chのスレッドURLを外部ブラウザではなくDenChannel内で開くように変更
+          - 内部リンクから開いたスレッドに本来のスレッド名を表示し、履歴とお気に入りにも保存
+          - Androidの戻る操作でリンク元のスレッドに復帰
+          - 5ch以外のURLは従来どおり外部ブラウザで表示
+
+          Pixel 9aでの個人利用向けAPKです。既存版へ上書き更新できます。
+          SHA-256: `1a3a8f924e5fcecd89a9a6d04bf13ed3462ada7d57cad90d9f6914efd3b37b54`
+          EOF
+          gh release create v0.9.11 \
+            DenChannel-0.9.11-debug.apk \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "DenChannel v0.9.11" \
+            --notes-file release-notes.md
+
+      - name: Verify release asset and clean temporary branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh release view v0.9.11 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --json assets \
+            --jq '[.assets[] | select(.name == "DenChannel-0.9.11-debug.apk")] | length')" = "1"
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/git/refs/heads/release-assets-v0.9.11"
