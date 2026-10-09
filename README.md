@@ -7,6 +7,7 @@ Pixel9aのみ動作確認　個人用です。
 
 最新版は[GitHub Releases](https://github.com/denngaku-chan/DenChannel-Releases/releases)からダウンロードできます。
 
+- [DenChannel v0.9.14](https://github.com/denngaku-chan/DenChannel-Releases/releases/tag/v0.9.14)
 - [DenChannel v0.9.13](https://github.com/denngaku-chan/DenChannel-Releases/releases/tag/v0.9.13)
 - [DenChannel v0.9.12](https://github.com/denngaku-chan/DenChannel-Releases/releases/tag/v0.9.12)
 - [DenChannel v0.9.11](https://github.com/denngaku-chan/DenChannel-Releases/releases/tag/v0.9.11)
