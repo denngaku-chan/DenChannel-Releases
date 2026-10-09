@@ -1,0 +1,71 @@
+name: Publish DenChannel v0.9.14
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-v0.9.14.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-denchannel-v0.9.14
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'denngaku-chan/DenChannel-Releases'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Restore and verify signed distribution APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          : > DenChannel-0.9.14-debug.apk
+          for blob_sha in a032b5b5b082433fe4875910d3c0a4424103003d f25d1bd2303bbc9fe4d7cbf6957b67b0a1bbfafc 250b825577a83df056a90bdeba5e8c4143238815; do
+            gh api "repos/${GITHUB_REPOSITORY}/git/blobs/${blob_sha}" --jq .content \
+              | tr -d '\n' \
+              | base64 --decode \
+              >> DenChannel-0.9.14-debug.apk
+          done
+          printf '%s  %s\n' \
+            'fe20fffc08b7164493533a33a5344ebf3904871c887acaf015e308a05d71ebf6' \
+            'DenChannel-0.9.14-debug.apk' \
+            | sha256sum --check -
+
+      - name: Upload APK to prepared release and verify downloaded bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view v0.9.14 --repo "${GITHUB_REPOSITORY}" \
+            --json assets > release-state.json
+          jq --exit-status \
+            'all(.assets[]; .name == "DenChannel-0.9.14-debug.apk") and (.assets | length <= 1)' \
+            release-state.json
+          if [ "$(jq '.assets | length' release-state.json)" = "0" ]; then
+            gh release upload v0.9.14 DenChannel-0.9.14-debug.apk \
+              --repo "${GITHUB_REPOSITORY}"
+          fi
+          mkdir downloaded
+          gh release download v0.9.14 --repo "${GITHUB_REPOSITORY}" \
+            --pattern 'DenChannel-0.9.14-debug.apk' --dir downloaded
+          printf '%s  %s\n' \
+            'fe20fffc08b7164493533a33a5344ebf3904871c887acaf015e308a05d71ebf6' \
+            'downloaded/DenChannel-0.9.14-debug.apk' \
+            | sha256sum --check -
+
+      - name: Publish verified release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release edit v0.9.14 --repo "${GITHUB_REPOSITORY}" \
+            --draft=false --latest
+          gh release view v0.9.14 --repo "${GITHUB_REPOSITORY}" \
+            --json tagName,isDraft,isPrerelease,url,assets > published-release.json
+          jq --exit-status \
+            '.tagName == "v0.9.14" and .isDraft == false and .isPrerelease == false and (.assets | length == 1) and .assets[0].name == "DenChannel-0.9.14-debug.apk"' \
+            published-release.json
